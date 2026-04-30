@@ -1,150 +1,205 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>珍煮丹・信義市府店 團體點單明細</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>今天吃什麼？大轉盤</title>
     <style>
+        :root {
+            --primary-color: #ff6b6b;
+            --secondary-color: #4ecdc4;
+            --bg-color: #f7f7f7;
+        }
+
         body {
-            font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background-color: #ffffff;
-            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: var(--bg-color);
             padding: 20px;
         }
-        .header {
-            border-bottom: 2px solid #5d4037;
-            padding-bottom: 10px;
+
+        h2 { color: #333; }
+
+        /* 控制區 */
+        .controls {
             margin-bottom: 20px;
-        }
-        h1 {
-            color: #5d4037;
-            font-size: 24px;
-            margin: 0;
-        }
-        .order-info {
-            background-color: #f9fbe7;
+            background: white;
             padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 150px;
+        }
+
+        button {
+            padding: 8px 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
             border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        .member-section {
-            margin-bottom: 15px;
-            padding: 10px;
-            border: 1px solid #eee;
-            border-radius: 5px;
-        }
-        .member-name {
+            cursor: pointer;
             font-weight: bold;
-            color: #2e7d32;
-            font-size: 18px;
-            border-left: 5px solid #2e7d32;
-            padding-left: 10px;
-            margin-bottom: 8px;
+            transition: 0.3s;
         }
-        ul {
-            list-style-type: none;
-            padding-left: 15px;
-            margin: 0;
+
+        button:hover { background-color: #ee5253; }
+
+        /* 轉盤容器 */
+        .wheel-container {
+            position: relative;
+            width: 350px;
+            height: 350px;
         }
-        li {
-            padding: 4px 0;
-            border-bottom: 1px dashed #ddd;
+
+        /* 指針 */
+        .pointer {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            background: #333;
+            clip-path: polygon(50% 100%, 0 0, 100% 0);
+            z-index: 10;
         }
-        li:last-child {
-            border-bottom: none;
+
+        canvas {
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1);
         }
-        .item-spec {
-            font-size: 0.9em;
-            color: #666;
-            margin-left: 5px;
-        }
-        .quantity {
+
+        .result {
+            margin-top: 20px;
+            font-size: 1.5rem;
             font-weight: bold;
-            color: #d32f2f;
+            color: var(--primary-color);
+            height: 30px;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>珍煮丹・信義市府店 團體點單明細</h1>
-        <p>訂單編號：#0E0WQ3Y | 預定取單時間：2026/04/17 15:00</p>
+
+    <h2>🍴 今天吃什麼？</h2>
+
+    <div class="controls">
+        <div id="input-group">
+            <input type="text" class="option-input" value="拉麵">
+            <input type="text" class="option-input" value="滷肉飯">
+            <input type="text" class="option-input" value="麥當勞">
+            <input type="text" class="option-input" value="義大利麵">
+        </div>
+        <p style="font-size: 0.8rem; color: #666;">(請填入 3-5 個選項)</p>
+        <button onclick="updateWheel()">更新轉盤</button>
+        <button onclick="spinWheel()" id="spin-btn" style="background-color: var(--secondary-color);">開始抽籤！</button>
     </div>
 
-    <div class="member-section"><div class="member-name">宇 (主揪)</div><ul><li>水蜜桃烏龍 (L、微冰、不另加甜) <span class="quantity">× 3</span></li><li>杯袋 <span class="quantity">× 15</span></li></ul></div>
-    <div class="member-section"><div class="member-name">測試</div><ul><li>杯袋 <span class="quantity">× 14</span></li></ul></div>
-    <div class="member-section"><div class="member-name">吳姿汶</div><ul><li>泰泰鮮奶茶 (L、微冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Auston</div><ul><li>香蕉可可奶 (L、去冰、三分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Eva c</div><ul><li>黑糖珍珠鮮奶 (M、微冰、三分甜、加黑糖布蕾) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">MM</div><ul><li>琥珀烏龍拿鐵 (L、微冰、三分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">楊梓豪</div><ul><li>泰泰鮮奶茶 (L、去冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">hsu Allen</div><ul><li>黑糖珍珠厚鮮奶 (L、少冰、五分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">lemon</div><ul><li>香蕉鮮奶紅 (L、加黑糖珍珠、少冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Bear</div><ul><li>香蕉鮮奶紅 (L、微冰、三分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Charles</div><ul><li>一包蕎麥復刻 (L、完全去冰、不另加甜) <span class="quantity">× 1</span></li><li>香蕉鮮奶紅 (L、微冰、一分甜) <span class="quantity">× 1</span></li><li>香蕉鮮奶紅 (L、微冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Jay</div><ul><li>蜜夏紅 (L、微冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">真田幸村</div><ul><li>蜂蜜菊花茶 (L、微冰、正常甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Alice</div><ul><li>黑糖珍珠厚鮮奶 (M、去冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Roger</div><ul><li>黑糖粉粿鮮奶 (M、微冰、五分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">謝綺芳</div><ul><li>香蕉鮮奶紅 (L、微冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">ken</div><ul><li>泰泰鮮奶茶 (L、去冰、不另加甜、加黑糖珍珠) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">matt</div><ul><li>珍珠奶茶 (L、完全去冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">WeiHsin</div><ul><li>香蕉鮮奶紅 (L、微冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Eric</div><ul><li>香蕉可可奶 (L、去冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Silvia</div><ul><li>西瓜烏龍 (L、微冰、不另加甜) <span class="quantity">× 1</span></li><li>復刻紅茶 (L、溫、不另加甜、加黑糖珍珠) <span class="quantity">× 1</span></li><li>黑糖珍珠鮮奶 (L、微冰、一分甜) <span class="quantity">× 1</span></li><li>水蜜桃烏龍 (L、少冰、不另加甜、加桂花茶凍) <span class="quantity">× 1</span></li><li>蜜夏紅 (L、去冰、不另加甜、加黑糖珍珠) <span class="quantity">× 1</span></li><li>水蜜桃烏龍 (L、少冰、不另加甜、加桂花茶凍) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Fin</div><ul><li>黑糖粉粿鮮奶 (L、去冰、三分甜、加芋泥) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">蔡漢錩</div><ul><li>香蕉鮮奶紅 (L、微冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">蘿拉</div><ul><li>水蜜桃烏龍 (L、去冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Max Huang</div><ul><li>水蜜桃烏龍 (L、微冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Rox熊</div><ul><li>布蕾紅茶拿鐵 (L、微冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">秉洋</div><ul><li>黑糖珍珠鮮奶 (L、去冰、三分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">許婷婷</div><ul><li>水蜜桃烏龍 (L、完全去冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">蔡嘉豪</div><ul><li>蜜夏紅 (L、去冰、不另加甜、加黑糖珍珠) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Hsi</div><ul><li>不知春 (L、少冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">AaronKuo</div><ul><li>手採烏龍奶 (L、熱、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">nat</div><ul><li>蜜夏紅 (L、去冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">木蘭</div><ul><li>黑糖珍珠鮮奶 (M、完全去冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">沈信甫</div><ul><li>百香翡翠不知春 (L、正常冰、不另加甜、加桂花茶凍) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">jeff</div><ul><li>黑糖珍珠鮮奶 (L、正常冰、三分甜、料少、加黑糖粉粿) <span class="quantity">× 1</span></li><li>煮母奶茶 (L、去冰、一分甜) <span class="quantity">× 1</span></li><li>蜂蜜菊花茶 (L、溫、正常甜) <span class="quantity">× 1</span></li><li>茉白奶綠 (L、少冰、不另加甜) <span class="quantity">× 1</span></li><li>黑糖珍珠厚鮮奶 (L、去冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Cody</div><ul><li>泰泰鮮奶茶 (L、微冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">AndyYu</div><ul><li>山茶花採蜜 青茶 (L、完全去冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Kai Chang</div><ul><li>香蕉可可奶 (L、微冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Crystal Chang</div><ul><li>黑糖綿芋鮮奶 (L、熱、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Pot</div><ul><li>西瓜烏龍 (L、正常冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Nick</div><ul><li>香蕉鮮奶紅 (M、去冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Emily Jhou</div><ul><li>煮母奶茶 (L、完全去冰、不另加甜、加豆花) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">amber</div><ul><li>黑糖珍珠鮮奶 (L、正常冰、三分甜、料少、加黑糖粉粿) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">VIPAshleyC</div><ul><li>百香雙響 (L、完全去冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Roy</div><ul><li>香蕉奶青 (L、少冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">jed</div><ul><li>蜜夏紅 (L、去冰、不另加甜、加黑糖珍珠) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">溫邦宇</div><ul><li>布蕾紅茶拿鐵 (L、去冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">jeff (2)</div><ul><li>西瓜烏龍 (L、微冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Jacky</div><ul><li>黑糖仙草鮮奶 (L、微冰、不另加甜、加黑糖珍珠) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Wang Sy</div><ul><li>蜂蜜菊花茶 (L、溫、正常甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Mark</div><ul><li>雲霧烏龍 (L、去冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Anderson Chung</div><ul><li>手採烏龍奶 (L、微冰、不另加甜、加芋圓) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">BE Jason</div><ul><li>西瓜烏龍 (L、微冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">guanmin</div><ul><li>不知春 (L、去冰、不另加甜、加黑糖珍珠) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Kenny Hung</div><ul><li>珍珠奶茶 (M、去冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Kiki</div><ul><li>青檸桂花釀粿粿 (L、微冰、三分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">914</div><ul><li>水蜜桃烏龍 (L、微冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">徐伯安</div><ul><li>香蕉可可奶 (L、去冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Bogi</div><ul><li>山茶花採蜜 青茶 (L、少冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Nancy</div><ul><li>琥珀烏龍拿鐵 (L、去冰、不另加甜、加黑糖珍珠) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Amy</div><ul><li>不知春 (L、溫、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Cody 2號</div><ul><li>黑糖檸檬冬瓜 (L、少冰、正常甜、多酸) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Abby</div><ul><li>姍姍紅茶拿鐵 (L、完全去冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">吳青芳</div><ul><li>香蕉可可奶 (M、完全去冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">買買</div><ul><li>珍珠奶茶 (L、少冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">小君</div><ul><li>黑糖布蕾珍珠鮮奶 (L、少冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">QA-Jason</div><ul><li>姍姍紅茶拿鐵 (L、微冰、三分甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Allen_XIE</div><ul><li>山茶花採蜜 檸檬桂花 (L、少冰、三分甜、少酸) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">蕭舜昕</div><ul><li>復刻紅茶 (L、溫、不另加甜、加黑糖珍珠) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">王明俐</div><ul><li>黑糖珍珠鮮奶 (L、溫、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Jessie</div><ul><li>香蕉可可奶 (M、微冰、不另加甜) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">William</div><ul><li>姍姍紅茶拿鐵 (L、微冰、一分甜、加黑糖珍珠) <span class="quantity">× 1</span></li></ul></div>
-    <div class="member-section"><div class="member-name">Zzz</div><ul><li>黑糖仙草鮮奶 (L、去冰、一分甜) <span class="quantity">× 1</span></li></ul></div>
+    <div class="wheel-container">
+        <div class="pointer"></div>
+        <canvas id="wheelCanvas" width="350" height="350"></canvas>
+    </div>
 
+    <div class="result" id="resultDisplay"></div>
+
+    <script>
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const resultDisplay = document.getElementById('resultDisplay');
+        let options = [];
+        let currentRotation = 0;
+        let isSpinning = false;
+
+        const colors = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#6BCB77', '#4D96FF'];
+
+        function drawWheel() {
+            const numOptions = options.length;
+            const arcSize = (2 * Math.PI) / numOptions;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            options.forEach((text, i) => {
+                const angle = i * arcSize;
+                
+                // 畫扇形
+                ctx.beginPath();
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.moveTo(175, 175);
+                ctx.arc(175, 175, 175, angle, angle + arcSize);
+                ctx.fill();
+                ctx.stroke();
+
+                // 畫文字
+                ctx.save();
+                ctx.translate(175, 175);
+                ctx.rotate(angle + arcSize / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "white";
+                ctx.font = "bold 18px Arial";
+                ctx.fillText(text, 160, 10);
+                ctx.restore();
+            });
+        }
+
+        function updateWheel() {
+            const inputs = document.querySelectorAll('.option-input');
+            const newOptions = [];
+            inputs.forEach(input => {
+                if (input.value.trim() !== "") {
+                    newOptions.push(input.value.trim());
+                }
+            });
+
+            if (newOptions.length < 3 || newOptions.length > 5) {
+                alert("請輸入 3 到 5 個選項喔！");
+                return;
+            }
+
+            options = newOptions;
+            resultDisplay.innerText = "";
+            canvas.style.transform = `rotate(0deg)`;
+            currentRotation = 0;
+            drawWheel();
+        }
+
+        function spinWheel() {
+            if (isSpinning) return;
+            if (options.length === 0) updateWheel();
+
+            isSpinning = true;
+            resultDisplay.innerText = "旋轉中...";
+            
+            // 隨機旋轉圈數 (至少 5 圈) + 隨機角度
+            const extraDegree = Math.floor(Math.random() * 360);
+            const totalSpin = 1800 + extraDegree; 
+            currentRotation += totalSpin;
+
+            canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+            // 計算結果
+            setTimeout(() => {
+                isSpinning = false;
+                const actualDeg = currentRotation % 360;
+                const arcSize = 360 / options.length;
+                
+                // 指針在上方(270度)，計算落在哪個區塊
+                // 轉盤順時針轉，所以要用 360 減去角度
+                const index = Math.floor(((360 - (actualDeg % 360) + 270) % 360) / arcSize);
+                resultDisplay.innerText = `🎉 今天就吃：${options[index]}！`;
+            }, 4000);
+        }
+
+        // 初始化
+        updateWheel();
+    </script>
 </body>
 </html>
