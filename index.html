@@ -1,205 +1,1084 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>今天吃什麼？大轉盤</title>
-    <style>
-        :root {
-            --primary-color: #ff6b6b;
-            --secondary-color: #4ecdc4;
-            --bg-color: #f7f7f7;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>[Ops] NU Pack 鑽石流向異常分析</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f12;
+    --bg2: #13161b;
+    --bg3: #1a1e26;
+    --border: #252a34;
+    --border2: #2e3545;
+    --text: #c8d0e0;
+    --text2: #7a8499;
+    --text3: #4a5168;
+    --accent: #4a8fff;
+    --red: #ff4757;
+    --red2: #c0392b;
+    --orange: #ff7f50;
+    --yellow: #ffd32a;
+    --green: #2ed573;
+    --green2: #1a9950;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 40px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background-color: var(--bg-color);
-            padding: 20px;
-        }
+  /* HEADER */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .header-left .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .header-left h1 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #e8edf5;
+    letter-spacing: -0.3px;
+  }
+  .header-left h1 span { color: var(--red); }
+  .header-right {
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    line-height: 1.9;
+  }
+  .header-right a {
+    color: var(--accent);
+    text-decoration: none;
+    opacity: 0.8;
+  }
+  .header-right a:hover { opacity: 1; text-decoration: underline; }
 
-        h2 { color: #333; }
+  /* SECTION */
+  .section {
+    margin-bottom: 40px;
+  }
+  .section-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::before {
+    content: '';
+    width: 3px;
+    height: 12px;
+    background: var(--accent);
+    display: inline-block;
+  }
 
-        /* 控制區 */
-        .controls {
-            margin-bottom: 20px;
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            text-align: center;
-        }
+  /* SUMMARY CARDS */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+  }
+  .card-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .card-value {
+    font-size: 24px;
+    font-weight: 600;
+    font-family: var(--mono);
+  }
+  .card-sub {
+    font-size: 11px;
+    color: var(--text2);
+    margin-top: 3px;
+  }
+  .c-red { color: var(--red); }
+  .c-orange { color: var(--orange); }
+  .c-yellow { color: var(--yellow); }
+  .c-green { color: var(--green); }
+  .c-accent { color: var(--accent); }
+  .c-dim { color: var(--text2); }
 
-        input {
-            padding: 8px;
-            margin: 5px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            width: 150px;
-        }
+  /* TABLES */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text3);
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  th.r { text-align: right; }
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: middle;
+  }
+  td.r { text-align: right; font-family: var(--mono); font-size: 12px; }
+  td.mono { font-family: var(--mono); font-size: 12px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+  tbody tr.critical td { background: rgba(255,71,87,0.04); }
+  tbody tr.critical:hover td { background: rgba(255,71,87,0.08); }
+  tbody tr.high td { background: rgba(255,127,80,0.04); }
+  tbody tr.high:hover td { background: rgba(255,127,80,0.07); }
 
-        button {
-            padding: 8px 20px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: 0.3s;
-        }
+  /* BAR */
+  .bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .bar-track {
+    flex: 1;
+    height: 5px;
+    background: var(--border2);
+    border-radius: 3px;
+    overflow: hidden;
+    min-width: 80px;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+  .bar-pct {
+    font-family: var(--mono);
+    font-size: 12px;
+    min-width: 44px;
+    text-align: right;
+    font-weight: 600;
+  }
 
-        button:hover { background-color: #ee5253; }
+  /* BADGES */
+  .badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    text-transform: uppercase;
+  }
+  .badge-critical { background: rgba(255,71,87,0.15); color: var(--red); border: 1px solid rgba(255,71,87,0.3); }
+  .badge-high     { background: rgba(255,127,80,0.15); color: var(--orange); border: 1px solid rgba(255,127,80,0.3); }
+  .badge-medium   { background: rgba(255,211,42,0.12); color: var(--yellow); border: 1px solid rgba(255,211,42,0.25); }
+  .badge-low      { background: rgba(46,213,115,0.1); color: var(--green); border: 1px solid rgba(46,213,115,0.2); }
+  .badge-company  { background: rgba(74,143,255,0.12); color: var(--accent); border: 1px solid rgba(74,143,255,0.25); }
 
-        /* 轉盤容器 */
-        .wheel-container {
-            position: relative;
-            width: 350px;
-            height: 350px;
-        }
+  /* COMPANY BLOCK */
+  .company-block {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .company-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+  }
+  .company-name {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    color: #e0e8f4;
+  }
+  .company-meta {
+    font-size: 12px;
+    color: var(--text2);
+    margin-top: 2px;
+  }
+  .company-meta span { font-family: var(--mono); }
+  .company-table { padding: 0; }
 
-        /* 指針 */
-        .pointer {
-            position: absolute;
-            top: -20px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 40px;
-            height: 40px;
-            background: #333;
-            clip-path: polygon(50% 100%, 0 0, 100% 0);
-            z-index: 10;
-        }
+  /* FINDING BOX */
+  .finding {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+  }
+  .finding.orange { border-left-color: var(--orange); }
+  .finding.yellow { border-left-color: var(--yellow); }
+  .finding-title {
+    font-weight: 600;
+    font-size: 13px;
+    color: #e0e8f4;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .finding-body {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.7;
+  }
+  .finding-body code {
+    font-family: var(--mono);
+    color: var(--text);
+    background: var(--bg3);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
 
-        canvas {
-            border-radius: 50%;
-            box-shadow: 0 0 20px rgba(0,0,0,0.2);
-            transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1);
-        }
+  /* LINKS */
+  .links-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+  .mp-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    text-decoration: none;
+    background: rgba(74,143,255,0.08);
+    border: 1px solid rgba(74,143,255,0.2);
+    padding: 4px 10px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .mp-link:hover { background: rgba(74,143,255,0.15); text-decoration: none; }
+  .mp-link::before { content: '↗'; font-size: 10px; }
 
-        .result {
-            margin-top: 20px;
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: var(--primary-color);
-            height: 30px;
-        }
-    </style>
+  /* DIVIDER */
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+  /* NOTE */
+  .note {
+    font-size: 12px;
+    color: var(--text3);
+    font-family: var(--mono);
+    padding: 10px 14px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-top: 14px;
+  }
+
+  @media (max-width: 700px) {
+    body { padding: 20px 16px; }
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    .header { flex-direction: column; gap: 16px; }
+    .header-right { text-align: left; }
+  }
+</style>
 </head>
 <body>
 
-    <h2>🍴 今天吃什麼？</h2>
-
-    <div class="controls">
-        <div id="input-group">
-            <input type="text" class="option-input" value="拉麵">
-            <input type="text" class="option-input" value="滷肉飯">
-            <input type="text" class="option-input" value="麥當勞">
-            <input type="text" class="option-input" value="義大利麵">
-        </div>
-        <p style="font-size: 0.8rem; color: #666;">(請填入 3-5 個選項)</p>
-        <button onclick="updateWheel()">更新轉盤</button>
-        <button onclick="spinWheel()" id="spin-btn" style="background-color: var(--secondary-color);">開始抽籤！</button>
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="tag">Ops · Fraud Investigation</div>
+    <h1><span>新手加量禮包</span> 鑽石流向異常分析</h1>
+    <div style="margin-top:10px; color:var(--text2); font-size:13px;">
+      分析對象：購買新手加量禮包（extra_pack_buyer cohort）後的鑽石去向<br>
+      重點指標：extra_pack_buyer 鑽石佔比遠高於正常值（基準約 1–3%）
     </div>
+  </div>
+  <div class="header-right">
+    產出日期：2026-05-08<br>
+    作者：ChunYu Hsieh<br>
+    <br>
+    <a href="https://mixpanel.com/project/1262196/view/111855/app/boards#id=11174672">📊 Dashboard</a><br>
+    <a href="https://mixpanel.com/project/1262196/view/111855/app/boards/#id=10914326">📁 舊版 Ops Board</a>
+  </div>
+</div>
 
-    <div class="wheel-container">
-        <div class="pointer"></div>
-        <canvas id="wheelCanvas" width="350" height="350"></canvas>
+<!-- SUMMARY CARDS -->
+<div class="section">
+  <div class="section-title">整體概況</div>
+  <div class="summary-grid">
+    <div class="card">
+      <div class="card-label">分析公司數</div>
+      <div class="card-value c-accent">18</div>
+      <div class="card-sub">有 extra_pack 流入</div>
     </div>
+    <div class="card">
+      <div class="card-label">最高異常佔比</div>
+      <div class="card-value c-red">98.6%</div>
+      <div class="card-sub">xinxinbaby3（ocean 旗下）</div>
+    </div>
+    <div class="card">
+      <div class="card-label">最大鑽石量異常</div>
+      <div class="card-value c-red">1,206,323</div>
+      <div class="card-sub">mds8888（happy 旗下）</div>
+    </div>
+    <div class="card">
+      <div class="card-label">shell account 疑似帳號</div>
+      <div class="card-value c-red">5</div>
+      <div class="card-sub">佔比 > 80%</div>
+    </div>
+    <div class="card">
+      <div class="card-label">需優先調查的公司</div>
+      <div class="card-value c-orange">3</div>
+      <div class="card-sub">happy / ocean / N</div>
+    </div>
+    <div class="card">
+      <div class="card-label">正常基準值</div>
+      <div class="card-value c-green">1–3%</div>
+      <div class="card-sub">flash 1.8%，milk 0.8%</div>
+    </div>
+  </div>
+  <div class="links-row">
+    <a class="mp-link" href="https://mixpanel.com/project/1262196/view/111855/app/insights#id=89986302">公司層級分佈報表</a>
+    <a class="mp-link" href="https://mixpanel.com/project/1262196/view/111855/app/insights#id=89986335">個別 Creator 細分報表</a>
+  </div>
+</div>
 
-    <div class="result" id="resultDisplay"></div>
+<!-- COMPANY LEVEL TABLE -->
+<div class="section">
+  <div class="section-title">第一層：各公司 Extra Pack 鑽石佔比</div>
+  <div class="company-block">
+    <table>
+      <thead>
+        <tr>
+          <th>公司代號</th>
+          <th>風險等級</th>
+          <th class="r">總鑽石</th>
+          <th class="r">Extra Pack 來源</th>
+          <th>佔比</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="critical">
+          <td class="mono">happy</td>
+          <td><span class="badge badge-critical">Critical</span></td>
+          <td class="r">3,343,800</td>
+          <td class="r c-red">1,281,941</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--red)"></div></div>
+              <span class="bar-pct c-red">38.3%</span>
+            </div>
+          </td>
+        </tr>
+        <tr class="high">
+          <td class="mono">grvlab</td>
+          <td><span class="badge badge-high">High</span></td>
+          <td class="r">357,400</td>
+          <td class="r c-orange">53,700</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track"><div class="bar-fill" style="width:39%;background:var(--orange)"></div></div>
+              <span class="bar-pct c-orange">15.0%</span>
+            </div>
+          </td>
+        </tr>
+        <tr class="high">
+          <td class="mono">raptor</td>
+          <td><span class="badge badge-high">High</span></td>
+          <td class="r">519,271</td>
+          <td class="r c-orange">74,700</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track"><div class="bar-fill" style="width:38%;background:var(--orange)"></div></div>
+              <span class="bar-pct c-orange">14.4%</span>
+            </div>
+          </td>
+        </tr>
+        <tr class="high">
+          <td class="mono">hame</td>
+          <td><span class="badge badge-high">High</span></td>
+          <td class="r">409,800</td>
+          <td class="r c-orange">44,000</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track"><div class="bar-fill" style="width:28%;background:var(--orange)"></div></div>
+              <span class="bar-pct c-orange">10.7%</span>
+            </div>
+          </td>
+        </tr>
+        <tr class="high">
+          <td class="mono">dx</td>
+          <td><span class="badge badge-high">High</span></td>
+          <td class="r">3,594,084</td>
+          <td class="r c-orange">357,569</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track"><div class="bar-fill" style="width:26%;background:var(--orange)"></div></div>
+              <span class="bar-pct c-orange">9.95%</span>
+            </div>
+          </td>
+        </tr>
+        <tr class="high">
+          <td class="mono">small</td>
+          <td><span class="badge badge-high">High</span></td>
+          <td class="r">6,463,377</td>
+          <td class="r c-orange">600,643</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track"><div class="bar-fill" style="width:24%;background:var(--orange)"></div></div>
+              <span class="bar-pct c-orange">9.29%</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="mono">ocean</td>
+          <td><span class="badge badge-medium">Medium</span></td>
+          <td class="r">50,802,311</td>
+          <td class="r c-yellow">3,494,193</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track"><div class="bar-fill" style="width:18%;background:var(--yellow)"></div></div>
+              <span class="bar-pct c-yellow">6.88%</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="mono">N</td>
+          <td><span class="badge badge-medium">Medium</span></td>
+          <td class="r">27,783,163</td>
+          <td class="r c-yellow">1,845,063</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track"><div class="bar-fill" style="width:17%;background:var(--yellow)"></div></div>
+              <span class="bar-pct c-yellow">6.64%</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="mono">bin</td>
+          <td><span class="badge badge-medium">Medium</span></td>
+          <td class="r">14,778,010</td>
+          <td class="r c-yellow">806,841</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track"><div class="bar-fill" style="width:14%;background:var(--yellow)"></div></div>
+              <span class="bar-pct c-yellow">5.46%</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="mono">nihao</td>
+          <td><span class="badge badge-medium">Medium</span></td>
+          <td class="r">2,764,252</td>
+          <td class="r c-yellow">132,254</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track"><div class="bar-fill" style="width:12%;background:var(--yellow)"></div></div>
+              <span class="bar-pct c-yellow">4.79%</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="mono">benz</td>
+          <td><span class="badge badge-low">Normal+</span></td>
+          <td class="r">16,883,308</td>
+          <td class="r">724,355</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track"><div class="bar-fill" style="width:11%;background:var(--text3)"></div></div>
+              <span class="bar-pct">4.29%</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="mono">tina</td>
+          <td><span class="badge badge-low">Normal</span></td>
+          <td class="r">25,000,626</td>
+          <td class="r">536,743</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track"><div class="bar-fill" style="width:6%;background:var(--green2)"></div></div>
+              <span class="bar-pct c-dim">2.15%</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="mono">flash</td>
+          <td><span class="badge badge-low">Normal</span></td>
+          <td class="r">85,855,716</td>
+          <td class="r">1,539,158</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track"><div class="bar-fill" style="width:5%;background:var(--green2)"></div></div>
+              <span class="bar-pct c-dim">1.79%</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="mono">milk</td>
+          <td><span class="badge badge-low">Normal</span></td>
+          <td class="r">20,614,449</td>
+          <td class="r">165,366</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track"><div class="bar-fill" style="width:2%;background:var(--green2)"></div></div>
+              <span class="bar-pct c-dim">0.80%</span>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
 
-    <script>
-        const canvas = document.getElementById('wheelCanvas');
-        const ctx = canvas.getContext('2d');
-        const resultDisplay = document.getElementById('resultDisplay');
-        let options = [];
-        let currentRotation = 0;
-        let isSpinning = false;
+<!-- INDIVIDUAL CREATOR BREAKDOWN -->
+<div class="section">
+  <div class="section-title">第二層：個別 Creator 細分</div>
 
-        const colors = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#6BCB77', '#4D96FF'];
+  <!-- HAPPY -->
+  <div class="company-block">
+    <div class="company-header">
+      <div>
+        <div class="company-name">happy <span class="badge badge-critical" style="margin-left:8px">38.3% 公司佔比</span></div>
+        <div class="company-meta">總鑽石 3,343,800 ／ Extra pack 1,281,941 ／ 不重複買家 186 人</div>
+      </div>
+    </div>
+    <div class="company-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Creator</th>
+            <th>風險</th>
+            <th class="r">總鑽石</th>
+            <th class="r">Extra Pack</th>
+            <th class="r">不重複買家</th>
+            <th>佔比</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="critical">
+            <td class="mono">mds8888</td>
+            <td><span class="badge badge-critical">Shell?</span></td>
+            <td class="r">1,276,544</td>
+            <td class="r c-red">1,206,323</td>
+            <td class="r c-red">136</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--red)"></div></div>
+                <span class="bar-pct c-red">94.5%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">xyc200896</td>
+            <td><span class="badge badge-medium">Medium</span></td>
+            <td class="r">427,806</td>
+            <td class="r c-yellow">52,899</td>
+            <td class="r">20</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:13%;background:var(--yellow)"></div></div>
+                <span class="bar-pct c-yellow">12.4%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">oumei_nvhai</td>
+            <td><span class="badge badge-low">Low</span></td>
+            <td class="r">58,010</td>
+            <td class="r">2,220</td>
+            <td class="r">7</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:4%;background:var(--green2)"></div></div>
+                <span class="bar-pct c-dim">3.8%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">mmj520</td>
+            <td><span class="badge badge-low">Low</span></td>
+            <td class="r">248,494</td>
+            <td class="r">5,610</td>
+            <td class="r">7</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:2%;background:var(--green2)"></div></div>
+                <span class="bar-pct c-dim">2.3%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">zhuzhu667788</td>
+            <td><span class="badge badge-low">Normal</span></td>
+            <td class="r">1,332,886</td>
+            <td class="r">14,889</td>
+            <td class="r">17</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:1%;background:var(--green2)"></div></div>
+                <span class="bar-pct c-dim">1.1%</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-        function drawWheel() {
-            const numOptions = options.length;
-            const arcSize = (2 * Math.PI) / numOptions;
+  <!-- OCEAN -->
+  <div class="company-block">
+    <div class="company-header">
+      <div>
+        <div class="company-name">ocean <span class="badge badge-medium" style="margin-left:8px">6.88% 公司佔比</span></div>
+        <div class="company-meta">總鑽石 50,802,311 ／ Extra pack 3,494,193 ／ 不重複買家 1,034 人</div>
+      </div>
+    </div>
+    <div class="company-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Creator</th>
+            <th>風險</th>
+            <th class="r">總鑽石</th>
+            <th class="r">Extra Pack</th>
+            <th class="r">不重複買家</th>
+            <th>佔比</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="critical">
+            <td class="mono">xinxinbaby3</td>
+            <td><span class="badge badge-critical">Shell?</span></td>
+            <td class="r">260,592</td>
+            <td class="r c-red">257,013</td>
+            <td class="r c-red">30</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--red)"></div></div>
+                <span class="bar-pct c-red">98.6%</span>
+              </div>
+            </td>
+          </tr>
+          <tr class="critical">
+            <td class="mono">love_bb2026</td>
+            <td><span class="badge badge-critical">Shell?</span></td>
+            <td class="r">349,361</td>
+            <td class="r c-red">343,051</td>
+            <td class="r c-red">42</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:98%;background:var(--red)"></div></div>
+                <span class="bar-pct c-red">98.2%</span>
+              </div>
+            </td>
+          </tr>
+          <tr class="critical">
+            <td class="mono">sese_s</td>
+            <td><span class="badge badge-critical">Shell?</span></td>
+            <td class="r">501,024</td>
+            <td class="r c-red">486,255</td>
+            <td class="r c-red">55</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:97%;background:var(--red)"></div></div>
+                <span class="bar-pct c-red">97.0%</span>
+              </div>
+            </td>
+          </tr>
+          <tr class="critical">
+            <td class="mono">tting_123</td>
+            <td><span class="badge badge-critical">Shell?</span></td>
+            <td class="r">441,180</td>
+            <td class="r c-red">364,770</td>
+            <td class="r c-red">46</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:83%;background:var(--red)"></div></div>
+                <span class="bar-pct c-red">82.7%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">nanaoooo</td>
+            <td><span class="badge badge-high">High</span></td>
+            <td class="r">30,892</td>
+            <td class="r c-orange">16,221</td>
+            <td class="r">2</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:52%;background:var(--orange)"></div></div>
+                <span class="bar-pct c-orange">52.5%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">huangyy520</td>
+            <td><span class="badge badge-medium">Medium</span></td>
+            <td class="r">683,605</td>
+            <td class="r c-yellow">101,064</td>
+            <td class="r">26</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:15%;background:var(--yellow)"></div></div>
+                <span class="bar-pct c-yellow">14.8%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">mayinuo611508</td>
+            <td><span class="badge badge-low">Low</span></td>
+            <td class="r">1,392,801</td>
+            <td class="r">119,620</td>
+            <td class="r">92</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:9%;background:var(--green2)"></div></div>
+                <span class="bar-pct c-dim">8.6%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">nuonuo_x</td>
+            <td><span class="badge badge-low">Low</span></td>
+            <td class="r">2,922,483</td>
+            <td class="r">251,123</td>
+            <td class="r">82</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:9%;background:var(--green2)"></div></div>
+                <span class="bar-pct c-dim">8.6%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">lele_z</td>
+            <td><span class="badge badge-low">Low</span></td>
+            <td class="r">2,047,560</td>
+            <td class="r">169,495</td>
+            <td class="r">96</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:8%;background:var(--green2)"></div></div>
+                <span class="bar-pct c-dim">8.3%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">susuya_s</td>
+            <td><span class="badge badge-low">Low</span></td>
+            <td class="r">2,276,454</td>
+            <td class="r">138,112</td>
+            <td class="r">92</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:6%;background:var(--green2)"></div></div>
+                <span class="bar-pct c-dim">6.1%</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+  <!-- N -->
+  <div class="company-block">
+    <div class="company-header">
+      <div>
+        <div class="company-name">N 公司 <span class="badge badge-medium" style="margin-left:8px">6.64% 公司佔比</span></div>
+        <div class="company-meta">總鑽石 27,783,163 ／ Extra pack 1,845,063 ／ 不重複買家 601 人</div>
+      </div>
+    </div>
+    <div class="company-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Creator</th>
+            <th>風險</th>
+            <th class="r">總鑽石</th>
+            <th class="r">Extra Pack</th>
+            <th class="r">不重複買家</th>
+            <th>佔比</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="critical">
+            <td class="mono">hvsspring</td>
+            <td><span class="badge badge-critical">Critical</span></td>
+            <td class="r">1,450,258</td>
+            <td class="r c-red">601,481</td>
+            <td class="r">40</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--red)"></div></div>
+                <span class="bar-pct c-red">41.5%</span>
+              </div>
+            </td>
+          </tr>
+          <tr class="high">
+            <td class="mono">zxhzxh123456</td>
+            <td><span class="badge badge-high">High</span></td>
+            <td class="r">429,528</td>
+            <td class="r c-orange">114,684</td>
+            <td class="r">33</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:64%;background:var(--orange)"></div></div>
+                <span class="bar-pct c-orange">26.7%</span>
+              </div>
+            </td>
+          </tr>
+          <tr class="high">
+            <td class="mono">shunshun818</td>
+            <td><span class="badge badge-high">High</span></td>
+            <td class="r">511,664</td>
+            <td class="r c-orange">72,446</td>
+            <td class="r">40</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:34%;background:var(--orange)"></div></div>
+                <span class="bar-pct c-orange">14.2%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">forcefulrain3037</td>
+            <td><span class="badge badge-medium">Medium</span></td>
+            <td class="r">1,159,602</td>
+            <td class="r c-yellow">116,288</td>
+            <td class="r">31</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:24%;background:var(--yellow)"></div></div>
+                <span class="bar-pct c-yellow">10.0%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">skyvivi3</td>
+            <td><span class="badge badge-medium">Medium</span></td>
+            <td class="r">367,568</td>
+            <td class="r c-yellow">38,520</td>
+            <td class="r">11</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:25%;background:var(--yellow)"></div></div>
+                <span class="bar-pct c-yellow">10.5%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">xiaotiantian_10</td>
+            <td><span class="badge badge-low">Low</span></td>
+            <td class="r">790,808</td>
+            <td class="r">57,667</td>
+            <td class="r">59</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:18%;background:var(--green2)"></div></div>
+                <span class="bar-pct c-dim">7.3%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">extraneousred6988</td>
+            <td><span class="badge badge-low">Low</span></td>
+            <td class="r">1,373,185</td>
+            <td class="r">81,586</td>
+            <td class="r">60</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:15%;background:var(--green2)"></div></div>
+                <span class="bar-pct c-dim">5.9%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">shuimitao520</td>
+            <td><span class="badge badge-low">Low</span></td>
+            <td class="r">516,885</td>
+            <td class="r">32,221</td>
+            <td class="r">18</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:15%;background:var(--green2)"></div></div>
+                <span class="bar-pct c-dim">6.2%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">ubub789</td>
+            <td><span class="badge badge-low">Low</span></td>
+            <td class="r">5,963,790</td>
+            <td class="r">221,583</td>
+            <td class="r">109</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:9%;background:var(--green2)"></div></div>
+                <span class="bar-pct c-dim">3.7%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="mono">nage5210</td>
+            <td><span class="badge badge-low">Low</span></td>
+            <td class="r">518,540</td>
+            <td class="r">20,036</td>
+            <td class="r">12</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:10%;background:var(--green2)"></div></div>
+                <span class="bar-pct c-dim">3.9%</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
-            options.forEach((text, i) => {
-                const angle = i * arcSize;
-                
-                // 畫扇形
-                ctx.beginPath();
-                ctx.fillStyle = colors[i % colors.length];
-                ctx.moveTo(175, 175);
-                ctx.arc(175, 175, 175, angle, angle + arcSize);
-                ctx.fill();
-                ctx.stroke();
+<!-- KEY FINDINGS -->
+<div class="section">
+  <div class="section-title">關鍵發現</div>
 
-                // 畫文字
-                ctx.save();
-                ctx.translate(175, 175);
-                ctx.rotate(angle + arcSize / 2);
-                ctx.textAlign = "right";
-                ctx.fillStyle = "white";
-                ctx.font = "bold 18px Arial";
-                ctx.fillText(text, 160, 10);
-                ctx.restore();
-            });
-        }
+  <div class="finding">
+    <div class="finding-title">🔴 疑似 Shell Account（專用收款帳號）— 5 個</div>
+    <div class="finding-body">
+      以下帳號幾乎 <strong>完全依賴 extra_pack_buyer</strong> 作為鑽石來源，正常用戶極少送禮，強烈指向為配合代儲/刷量而建立的收款帳號：<br><br>
+      <code>mds8888</code>（94.5%，1,206,323 鑽石）·
+      <code>xinxinbaby3</code>（98.6%）·
+      <code>love_bb2026</code>（98.2%）·
+      <code>sese_s</code>（97.0%）·
+      <code>tting_123</code>（82.7%）<br><br>
+      正常創作者的收入基礎應來自真實回頭粉絲，若幾乎全數來自剛買禮包的新用戶，幾乎可以確定是有人系統性地導流。
+    </div>
+  </div>
 
-        function updateWheel() {
-            const inputs = document.querySelectorAll('.option-input');
-            const newOptions = [];
-            inputs.forEach(input => {
-                if (input.value.trim() !== "") {
-                    newOptions.push(input.value.trim());
-                }
-            });
+  <div class="finding orange">
+    <div class="finding-title">🟠 happy 公司結構異常</div>
+    <div class="finding-body">
+      happy 公司整體 38.3% 的佔比，主要由 <code>mds8888</code> 貢獻（94.5%，是 happy 最大的 creator）。
+      <code>zhuzhu667788</code> 同為 happy 旗下但佔比僅 1.1%，兩者行為模式差異極大，代表問題集中在 mds8888 這個帳號而非整個公司普遍性行為。
+    </div>
+  </div>
 
-            if (newOptions.length < 3 || newOptions.length > 5) {
-                alert("請輸入 3 到 5 個選項喔！");
-                return;
-            }
+  <div class="finding orange">
+    <div class="finding-title">🟠 hvsspring（N 公司）結構性高佔比</div>
+    <div class="finding-body">
+      N 公司旗下 <code>hvsspring</code> 獨佔 601,481 鑽石（41.5% 佔比），幾乎貢獻了 N 公司全部異常量的三分之一。
+      相比之下 <code>ubub789</code>（109 名買家，3.7% 佔比）屬於正常高人氣 creator。
+    </div>
+  </div>
 
-            options = newOptions;
-            resultDisplay.innerText = "";
-            canvas.style.transform = `rotate(0deg)`;
-            currentRotation = 0;
-            drawWheel();
-        }
+  <div class="finding yellow">
+    <div class="finding-title">🟡 nanaoooo 新增觀察對象</div>
+    <div class="finding-body">
+      ocean 旗下 <code>nanaoooo</code> 總鑽石量小（30,892），但 52.5% 來自 extra_pack_buyer，僅 2 位不重複買家貢獻 16,221 鑽石，疑似少數帳號集中輸送，建議確認這 2 位買家的 fpid 身份。
+    </div>
+  </div>
+</div>
 
-        function spinWheel() {
-            if (isSpinning) return;
-            if (options.length === 0) updateWheel();
+<!-- RECOMMENDED ACTIONS -->
+<div class="section">
+  <div class="section-title">建議行動</div>
+  <table>
+    <thead>
+      <tr>
+        <th>優先級</th>
+        <th>目標帳號</th>
+        <th>行動</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-critical">P0</span></td>
+        <td class="mono">mds8888 / xinxinbaby3 / love_bb2026 / sese_s / tting_123</td>
+        <td>確認帳號真實性、查 fpid 重疊與 creator 資料，評估 ban</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-high">P1</span></td>
+        <td class="mono">hvsspring / zxhzxh123456</td>
+        <td>查 N 公司背景，確認是否知情，追蹤買家 IP/fpid 是否重疊</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-medium">P2</span></td>
+        <td class="mono">shunshun818 / huangyy520 / nanaoooo</td>
+        <td>二線觀察，若有新增異常再升級</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-low">Watch</span></td>
+        <td class="mono">happy（公司整體）/ small / dx / raptor</td>
+        <td>繼續監控公司層級佔比趨勢</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="note">
+    ※ 所有佔比計算以同一時間範圍為基準（報表時間詳見 Mixpanel）。正常基準值：flash 1.8%、milk 0.8%、tina 2.15%。
+  </div>
+</div>
 
-            isSpinning = true;
-            resultDisplay.innerText = "旋轉中...";
-            
-            // 隨機旋轉圈數 (至少 5 圈) + 隨機角度
-            const extraDegree = Math.floor(Math.random() * 360);
-            const totalSpin = 1800 + extraDegree; 
-            currentRotation += totalSpin;
+<hr>
 
-            canvas.style.transform = `rotate(${currentRotation}deg)`;
+<!-- FOOTER LINKS -->
+<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+  <div style="font-family:var(--mono); font-size:11px; color:var(--text3);">
+    SWAG.live · Internal Ops · Fraud Investigation
+  </div>
+  <div class="links-row">
+    <a class="mp-link" href="https://mixpanel.com/project/1262196/view/111855/app/boards#id=11174672">本次 Dashboard</a>
+    <a class="mp-link" href="https://mixpanel.com/project/1262196/view/111855/app/insights#id=89986302">公司層級報表</a>
+    <a class="mp-link" href="https://mixpanel.com/project/1262196/view/111855/app/insights#id=89986335">Creator 細分報表</a>
+    <a class="mp-link" href="https://mixpanel.com/project/1262196/view/111855/app/boards/#id=10914326">舊版 Ops Board</a>
+  </div>
+</div>
 
-            // 計算結果
-            setTimeout(() => {
-                isSpinning = false;
-                const actualDeg = currentRotation % 360;
-                const arcSize = 360 / options.length;
-                
-                // 指針在上方(270度)，計算落在哪個區塊
-                // 轉盤順時針轉，所以要用 360 減去角度
-                const index = Math.floor(((360 - (actualDeg % 360) + 270) % 360) / arcSize);
-                resultDisplay.innerText = `🎉 今天就吃：${options[index]}！`;
-            }, 4000);
-        }
-
-        // 初始化
-        updateWheel();
-    </script>
 </body>
 </html>
