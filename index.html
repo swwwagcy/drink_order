@@ -1,1098 +1,527 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>[Ops] NU Pack 鑽石流向異常分析</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #0d0f12;
-    --bg2: #13161b;
-    --bg3: #1a1e26;
-    --border: #252a34;
-    --border2: #2e3545;
-    --text: #c8d0e0;
-    --text2: #7a8499;
-    --text3: #4a5168;
-    --accent: #4a8fff;
-    --red: #ff4757;
-    --red2: #c0392b;
-    --orange: #ff7f50;
-    --yellow: #ffd32a;
-    --green: #2ed573;
-    --green2: #1a9950;
-    --mono: 'IBM Plex Mono', monospace;
-    --sans: 'IBM Plex Sans', sans-serif;
-  }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: 14px;
-    line-height: 1.6;
-    padding: 40px;
-    max-width: 1100px;
-    margin: 0 auto;
-  }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whale 經濟學驗證報告 v2 — SWAG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070A14;
+      --bg-card: #0C1121;
+      --border: #1A2540;
+      --border-s: #243356;
+      --whale: #D4A853;
+      --whale-dim: #8A6828;
+      --whale-bg: rgba(212,168,83,0.07);
+      --verified: #2ECFAA;
+      --verified-dim: #1A7860;
+      --verified-bg: rgba(46,207,170,0.07);
+      --est: #6B8EDE;
+      --est-bg: rgba(107,142,222,0.07);
+      --flag: #E05A5A;
+      --flag-bg: rgba(224,90,90,0.07);
+      --text: #E2E8F5;
+      --muted: #6B7FA3;
+      --dim: #2E3F60;
+      --font: 'IBM Plex Sans', system-ui, sans-serif;
+      --mono: 'IBM Plex Mono', monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.65;
+      padding: 48px 0 80px;
+    }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 0 28px; }
 
-  /* HEADER */
-  .header {
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 24px;
-    margin-bottom: 36px;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-  }
-  .header-left .tag {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--accent);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-  .header-left h1 {
-    font-size: 22px;
-    font-weight: 600;
-    color: #e8edf5;
-    letter-spacing: -0.3px;
-  }
-  .header-left h1 span { color: var(--red); }
-  .header-right {
-    text-align: right;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text3);
-    line-height: 1.9;
-  }
-  .header-right a {
-    color: var(--accent);
-    text-decoration: none;
-    opacity: 0.8;
-  }
-  .header-right a:hover { opacity: 1; text-decoration: underline; }
+    /* header */
+    .hdr { margin-bottom: 36px; padding-bottom: 28px; border-bottom: 0.5px solid var(--border); }
+    .hdr-meta {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+      margin-bottom: 14px; font-size: 11px; font-family: var(--mono);
+      color: var(--muted); text-transform: uppercase; letter-spacing: .07em;
+    }
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 9px; border-radius: 3px;
+      font-size: 10px; font-family: var(--mono); letter-spacing: .04em; font-weight: 500;
+    }
+    .b-ok   { background: var(--verified-bg); color: var(--verified); border: .5px solid var(--verified-dim); }
+    .b-est  { background: var(--est-bg);      color: var(--est);      border: .5px solid var(--est); }
+    .b-flag { background: var(--flag-bg);      color: var(--flag);     border: .5px solid var(--flag); }
+    h1 { font-size: 27px; font-weight: 600; line-height: 1.25; margin-bottom: 8px; }
+    h1 em { font-style: normal; color: var(--whale); }
+    .hdr-sub { font-size: 14px; color: var(--muted); }
 
-  /* SECTION */
-  .section {
-    margin-bottom: 40px;
-  }
-  .section-title {
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 2.5px;
-    text-transform: uppercase;
-    color: var(--text3);
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .section-title::before {
-    content: '';
-    width: 3px;
-    height: 12px;
-    background: var(--accent);
-    display: inline-block;
-  }
+    /* section */
+    .sec { margin-bottom: 52px; }
+    .sec-lbl { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+    .sec-n { font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .12em; }
+    h2 { font-size: 15px; font-weight: 600; }
 
-  /* SUMMARY CARDS */
-  .summary-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-bottom: 28px;
-  }
-  .card {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 16px 20px;
-  }
-  .card-label {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--text3);
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .card-value {
-    font-size: 24px;
-    font-weight: 600;
-    font-family: var(--mono);
-  }
-  .card-sub {
-    font-size: 11px;
-    color: var(--text2);
-    margin-top: 3px;
-  }
-  .c-red { color: var(--red); }
-  .c-orange { color: var(--orange); }
-  .c-yellow { color: var(--yellow); }
-  .c-green { color: var(--green); }
-  .c-accent { color: var(--accent); }
-  .c-dim { color: var(--text2); }
+    /* one-liner */
+    .one {
+      background: var(--whale-bg); border: .5px solid var(--whale-dim);
+      border-radius: 8px; padding: 18px 22px; margin-bottom: 36px;
+      font-size: 14px; font-weight: 500; color: var(--whale); line-height: 1.6; text-align: center;
+    }
 
-  /* TABLES */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-  th {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--text3);
-    text-align: left;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-  }
-  th.r { text-align: right; }
-  td {
-    padding: 9px 12px;
-    border-bottom: 1px solid var(--border);
-    color: var(--text);
-    vertical-align: middle;
-  }
-  td.r { text-align: right; font-family: var(--mono); font-size: 12px; }
-  td.mono { font-family: var(--mono); font-size: 12px; }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: var(--bg3); }
-  tbody tr.critical td { background: rgba(255,71,87,0.04); }
-  tbody tr.critical:hover td { background: rgba(255,71,87,0.08); }
-  tbody tr.high td { background: rgba(255,127,80,0.04); }
-  tbody tr.high:hover td { background: rgba(255,127,80,0.07); }
+    /* power-law */
+    .pc { background: var(--bg-card); border: .5px solid var(--border); border-radius: 8px; padding: 26px 24px; }
+    .pc-lbl { font-size: 10px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 22px; }
+    .br { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .bt { width: 72px; font-size: 12px; color: var(--muted); text-align: right; flex-shrink: 0; font-family: var(--mono); }
+    .bk { flex: 1; height: 26px; background: rgba(255,255,255,.03); border-radius: 3px; overflow: hidden; border: .5px solid var(--border); }
+    .bf {
+      height: 100%; border-radius: 2px; display: flex; align-items: center;
+      padding-left: 10px; font-size: 11px; font-weight: 600; font-family: var(--mono);
+      transition: width 1.4s cubic-bezier(.22,1,.36,1); width: 0;
+    }
+    .fw { background: var(--whale); color: #1A0E00; }
+    .fd { background: var(--est); color: #0A0E2A; }
+    .fm { background: #1E2D4A; color: var(--muted); }
+    .bp { width: 62px; text-align: right; font-size: 11px; color: var(--muted); font-family: var(--mono); flex-shrink: 0; }
+    .ps { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 22px; padding-top: 22px; border-top: .5px solid var(--border); }
+    .pi { display: flex; flex-direction: column; gap: 3px; }
+    .pn { font-size: 26px; font-weight: 600; font-family: var(--mono); line-height: 1; }
+    .pl { font-size: 11px; color: var(--muted); }
 
-  /* BAR */
-  .bar-wrap {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .bar-track {
-    flex: 1;
-    height: 5px;
-    background: var(--border2);
-    border-radius: 3px;
-    overflow: hidden;
-    min-width: 80px;
-  }
-  .bar-fill {
-    height: 100%;
-    border-radius: 3px;
-    transition: width 0.3s;
-  }
-  .bar-pct {
-    font-family: var(--mono);
-    font-size: 12px;
-    min-width: 44px;
-    text-align: right;
-    font-weight: 600;
-  }
+    /* two-path */
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .path {
+      background: var(--bg-card); border: .5px solid var(--border);
+      border-radius: 8px; padding: 18px 18px 16px;
+    }
+    .path.p-acq { border-top: 2px solid var(--est); }
+    .path.p-grad { border-top: 2px solid var(--whale); }
+    .path-head {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 12px; padding-bottom: 12px; border-bottom: .5px solid var(--border);
+    }
+    .path-icon { font-size: 15px; }
+    .path-title { font-size: 13px; font-weight: 600; }
+    .path-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .path-q {
+      font-size: 11px; color: var(--muted); line-height: 1.55;
+      margin-bottom: 10px;
+    }
+    .path-q strong { color: var(--text); font-weight: 500; }
+    .path-note {
+      font-size: 11px; font-family: var(--mono);
+      padding: 6px 10px; border-radius: 4px;
+    }
+    .note-est  { background: var(--est-bg);   color: var(--est);   border: .5px solid var(--est); }
+    .note-warn { background: var(--flag-bg);   color: var(--flag);  border: .5px solid var(--flag); }
+    .path-blind {
+      margin-top: 10px; font-size: 11px; color: var(--flag);
+      padding: 8px 10px; border-radius: 4px;
+      background: var(--flag-bg); border: .5px solid var(--flag);
+    }
 
-  /* BADGES */
-  .badge {
-    display: inline-block;
-    font-family: var(--mono);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    padding: 2px 7px;
-    border-radius: 3px;
-    text-transform: uppercase;
-  }
-  .badge-critical { background: rgba(255,71,87,0.15); color: var(--red); border: 1px solid rgba(255,71,87,0.3); }
-  .badge-high     { background: rgba(255,127,80,0.15); color: var(--orange); border: 1px solid rgba(255,127,80,0.3); }
-  .badge-medium   { background: rgba(255,211,42,0.12); color: var(--yellow); border: 1px solid rgba(255,211,42,0.25); }
-  .badge-low      { background: rgba(46,213,115,0.1); color: var(--green); border: 1px solid rgba(46,213,115,0.2); }
-  .badge-company  { background: rgba(74,143,255,0.12); color: var(--accent); border: 1px solid rgba(74,143,255,0.25); }
+    /* tier table */
+    .tw { background: var(--bg-card); border: .5px solid var(--border); border-radius: 8px; overflow: hidden; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    thead tr { background: rgba(255,255,255,.02); }
+    th {
+      padding: 11px 13px; text-align: left; font-size: 10px; font-family: var(--mono);
+      text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 500;
+      border-bottom: .5px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 11px 13px; border-bottom: .5px solid var(--border); color: var(--text); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    .cw  { color: var(--whale); font-weight: 600; }
+    .cd  { color: var(--est); }
+    .cm  { color: var(--muted); }
+    .cf  { color: var(--flag); font-size: 11px; }
+    .cmo { font-family: var(--mono); font-size: 11px; }
+    .rw  { background: rgba(212,168,83,.04); }
 
-  /* COMPANY BLOCK */
-  .company-block {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    margin-bottom: 16px;
-    overflow: hidden;
-  }
-  .company-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg3);
-  }
-  .company-name {
-    font-family: var(--mono);
-    font-size: 14px;
-    font-weight: 600;
-    color: #e0e8f4;
-  }
-  .company-meta {
-    font-size: 12px;
-    color: var(--text2);
-    margin-top: 2px;
-  }
-  .company-meta span { font-family: var(--mono); }
-  .company-table { padding: 0; }
+    /* ── OBSERVATION SYSTEM ── */
+    .obs-intro {
+      font-size: 13px; color: var(--muted); line-height: 1.7;
+      margin-bottom: 22px;
+    }
+    .obs-intro strong { color: var(--text); font-weight: 500; }
 
-  /* FINDING BOX */
-  .finding {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--red);
-    border-radius: 6px;
-    padding: 16px 20px;
-    margin-bottom: 12px;
-  }
-  .finding.orange { border-left-color: var(--orange); }
-  .finding.yellow { border-left-color: var(--yellow); }
-  .finding-title {
-    font-weight: 600;
-    font-size: 13px;
-    color: #e0e8f4;
-    margin-bottom: 6px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .finding-body {
-    font-size: 13px;
-    color: var(--text2);
-    line-height: 1.7;
-  }
-  .finding-body code {
-    font-family: var(--mono);
-    color: var(--text);
-    background: var(--bg3);
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-size: 12px;
-  }
+    .layers { display: flex; flex-direction: column; gap: 0; }
 
-  /* LINKS */
-  .links-row {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 6px;
-  }
-  .mp-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--accent);
-    text-decoration: none;
-    background: rgba(74,143,255,0.08);
-    border: 1px solid rgba(74,143,255,0.2);
-    padding: 4px 10px;
-    border-radius: 4px;
-    transition: background 0.15s;
-  }
-  .mp-link:hover { background: rgba(74,143,255,0.15); text-decoration: none; }
-  .mp-link::before { content: '↗'; font-size: 10px; }
+    .layer {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      border: .5px solid var(--border);
+      border-radius: 0;
+      overflow: hidden;
+    }
+    .layer:first-child { border-radius: 8px 8px 0 0; }
+    .layer:last-child  { border-radius: 0 0 8px 8px; }
+    .layer + .layer    { border-top: none; }
 
-  /* DIVIDER */
-  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+    .layer-id {
+      background: rgba(255,255,255,.02);
+      padding: 20px 18px;
+      border-right: .5px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 5px;
+    }
+    .layer-num { font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .1em; }
+    .layer-name { font-size: 13px; font-weight: 600; }
+    .layer-en   { font-size: 11px; color: var(--muted); }
+    .layer-body { padding: 20px 20px 18px; display: flex; flex-direction: column; gap: 10px; }
 
-  /* NOTE */
-  .note {
-    font-size: 12px;
-    color: var(--text3);
-    font-family: var(--mono);
-    padding: 10px 14px;
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    margin-top: 14px;
-  }
+    .layer-q {
+      font-size: 12px; font-weight: 500; color: var(--text);
+      padding-bottom: 10px; border-bottom: .5px solid var(--border);
+      line-height: 1.5;
+    }
+    .layer-q span { color: var(--muted); font-weight: 400; }
 
-  .swag-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--text);
-    text-decoration: none;
-    transition: color 0.15s;
-  }
-  .swag-link:hover { color: #e0e8f4; text-decoration: underline; }
-  .swag-link::after { content: ' ↗'; font-size: 10px; color: var(--text3); }
+    .metrics { display: flex; flex-wrap: wrap; gap: 8px; }
+    .metric {
+      font-size: 11px; font-family: var(--mono);
+      padding: 4px 10px; border-radius: 4px;
+      border: .5px solid var(--border-s);
+      color: var(--muted); background: rgba(255,255,255,.02);
+    }
+    .metric.hi { color: var(--whale); border-color: var(--whale-dim); background: var(--whale-bg); }
+    .metric.mi { color: var(--est);   border-color: var(--est);        background: var(--est-bg); }
+    .metric.vi { color: var(--verified); border-color: var(--verified-dim); background: var(--verified-bg); }
+    .metric.fi { color: var(--flag);  border-color: var(--flag);       background: var(--flag-bg); }
 
-  @media (max-width: 700px) {
-    body { padding: 20px 16px; }
-    .summary-grid { grid-template-columns: 1fr 1fr; }
-    .header { flex-direction: column; gap: 16px; }
-    .header-right { text-align: left; }
-  }
-</style>
+    .layer-signal {
+      font-size: 11px; color: var(--muted); line-height: 1.55;
+      padding: 8px 10px; border-radius: 4px;
+      border: .5px solid var(--border); background: rgba(255,255,255,.01);
+    }
+    .layer-signal strong { color: var(--text); font-weight: 500; }
+
+    /* cross-cut */
+    .xcut {
+      margin-top: 12px;
+      background: var(--whale-bg); border: .5px solid var(--whale-dim); border-radius: 8px;
+      padding: 18px 20px;
+      display: grid; grid-template-columns: 180px 1fr; gap: 0;
+    }
+    .xcut-id {
+      display: flex; flex-direction: column; gap: 5px; justify-content: center;
+      padding-right: 20px; border-right: .5px solid var(--whale-dim);
+    }
+    .xcut-tag { font-family: var(--mono); font-size: 10px; color: var(--whale-dim); letter-spacing: .1em; }
+    .xcut-name { font-size: 13px; font-weight: 600; color: var(--whale); }
+    .xcut-body { padding-left: 20px; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+    .xcut-q { font-size: 12px; font-weight: 500; color: var(--text); line-height: 1.5; }
+    .xcut-sub { font-size: 12px; color: var(--muted); line-height: 1.55; }
+    .xcut-sub strong { color: var(--whale); font-weight: 500; }
+
+    /* divider */
+    .div { height: .5px; background: var(--border); margin: 8px 0 40px; }
+
+    /* action items — minimal */
+    .actions { display: flex; flex-direction: column; gap: 0; }
+    .action-row {
+      display: grid; grid-template-columns: 28px 1fr auto;
+      gap: 14px; align-items: center;
+      padding: 16px 0;
+      border-bottom: .5px solid var(--border);
+    }
+    .action-row:last-child { border-bottom: none; }
+    .an { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+    .at { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.4; }
+    .at em { font-style: normal; color: var(--muted); font-weight: 400; font-size: 12px; display: block; margin-top: 3px; }
+    .atags { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+    .tag {
+      font-size: 10px; font-family: var(--mono); padding: 2px 8px; border-radius: 3px;
+      white-space: nowrap; background: rgba(255,255,255,.03);
+      border: .5px solid var(--border-s); color: var(--muted);
+    }
+    .tag.s { background: var(--whale-bg); border-color: var(--whale-dim); color: var(--whale); }
+
+    /* footer */
+    .ftr {
+      padding-top: 24px; border-top: .5px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 11px; color: var(--dim); font-family: var(--mono);
+    }
+
+    @media (max-width: 620px) {
+      .two { grid-template-columns: 1fr; }
+      .layer, .xcut { grid-template-columns: 1fr; }
+      .layer-id, .xcut-id { border-right: none; border-bottom: .5px solid var(--border); padding: 14px; }
+      .xcut-body { padding-left: 0; padding-top: 14px; }
+      .ps { gap: 18px; }
+    }
+  </style>
 </head>
 <body>
+<div class="wrap">
 
-<!-- HEADER -->
-<div class="header">
-  <div class="header-left">
-    <div class="tag">Ops · Fraud Investigation</div>
-    <h1><span>新手加量禮包</span> 鑽石流向異常分析</h1>
-    <div style="margin-top:10px; color:var(--text2); font-size:13px;">
-      分析對象：購買新手加量禮包（extra_pack_buyer cohort）後的鑽石去向<br>
-      重點指標：extra_pack_buyer 鑽石佔比遠高於正常值（基準約 1–3%）<br>
-      <span style="font-family:var(--mono); font-size:12px; color:var(--accent); background:rgba(74,143,255,0.08); border:1px solid rgba(74,143,255,0.2); padding:3px 10px; border-radius:4px; display:inline-block; margin-top:8px;">📅 資料區間：Apr 28, 2026 — May 6, 2026</span>
+  <!-- header -->
+  <div class="hdr">
+    <div class="hdr-meta">
+      <span>SWAG.LIVE</span><span style="color:var(--dim)">—</span>
+      <span>內部策略文件</span><span style="color:var(--dim)">—</span>
+      <span id="doc-date"></span>
+      <span style="margin-left:auto"><span class="badge b-ok">✓ 框架修正版</span></span>
     </div>
+    <h1>Whale 經濟學 <em>觀測框架</em></h1>
+    <p class="hdr-sub">驗證分層 LTV 邏輯，修正歸因偏差，建構雙路徑 Whale 觀測體系</p>
   </div>
-  <div class="header-right">
-    產出日期：2026-05-08<br>
-    作者：ChunYu Hsieh<br>
-    <br>
-    <a href="https://mixpanel.com/project/1262196/view/111855/app/boards#id=11174672">📊 Dashboard</a><br>
-    <a href="https://mixpanel.com/project/1262196/view/111855/app/boards/#id=10914326">📁 舊版 Ops Board</a>
-  </div>
-</div>
 
-<!-- SUMMARY CARDS -->
-<div class="section">
-  <div class="section-title">整體概況</div>
-  <div class="summary-grid">
-    <div class="card">
-      <div class="card-label">分析公司數</div>
-      <div class="card-value c-accent">18</div>
-      <div class="card-sub">有 extra_pack 流入</div>
-    </div>
-    <div class="card">
-      <div class="card-label">最高異常佔比</div>
-      <div class="card-value c-red">98.6%</div>
-      <div class="card-sub">xinxinbaby3（ocean 旗下）</div>
-    </div>
-    <div class="card">
-      <div class="card-label">最大鑽石量異常</div>
-      <div class="card-value c-red">1,206,323</div>
-      <div class="card-sub">mds8888（happy 旗下）</div>
-    </div>
-    <div class="card">
-      <div class="card-label">shell account 疑似帳號</div>
-      <div class="card-value c-red">5</div>
-      <div class="card-sub">佔比 > 80%</div>
-    </div>
-    <div class="card">
-      <div class="card-label">需優先調查的公司</div>
-      <div class="card-value c-orange">3</div>
-      <div class="card-sub">happy / ocean / N</div>
-    </div>
-    <div class="card">
-      <div class="card-label">正常基準值</div>
-      <div class="card-value c-green">1–3%</div>
-      <div class="card-sub">flash 1.8%，milk 0.8%</div>
-    </div>
+  <!-- one-liner -->
+  <div class="one">
+    Whale 有兩種來源：<strong style="color:#F0C878">流量帶進來的</strong>，以及<strong style="color:#F0C878">平台自己養出來的</strong>——兩條路都需要觀測，只看其中一條會誤判所有決策。
   </div>
-  <div class="links-row">
-    <a class="mp-link" href="https://mixpanel.com/project/1262196/view/111855/app/insights#id=89986302">公司層級分佈報表</a>
-    <a class="mp-link" href="https://mixpanel.com/project/1262196/view/111855/app/insights#id=89986335">個別 Creator 細分報表</a>
-  </div>
-</div>
 
-<!-- COMPANY LEVEL TABLE -->
-<div class="section">
-  <div class="section-title">第一層：各公司 Extra Pack 鑽石佔比</div>
-  <div class="company-block">
-    <table>
-      <thead>
-        <tr>
-          <th>公司代號</th>
-          <th>風險等級</th>
-          <th class="r">總鑽石</th>
-          <th class="r">Extra Pack 來源</th>
-          <th>佔比</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr class="critical">
-          <td class="mono">happy</td>
-          <td><span class="badge badge-critical">Critical</span></td>
-          <td class="r">3,343,800</td>
-          <td class="r c-red">1,281,941</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--red)"></div></div>
-              <span class="bar-pct c-red">38.3%</span>
-            </div>
-          </td>
-        </tr>
-        <tr class="high">
-          <td class="mono">grvlab</td>
-          <td><span class="badge badge-high">High</span></td>
-          <td class="r">357,400</td>
-          <td class="r c-orange">53,700</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:39%;background:var(--orange)"></div></div>
-              <span class="bar-pct c-orange">15.0%</span>
-            </div>
-          </td>
-        </tr>
-        <tr class="high">
-          <td class="mono">raptor</td>
-          <td><span class="badge badge-high">High</span></td>
-          <td class="r">519,271</td>
-          <td class="r c-orange">74,700</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:38%;background:var(--orange)"></div></div>
-              <span class="bar-pct c-orange">14.4%</span>
-            </div>
-          </td>
-        </tr>
-        <tr class="high">
-          <td class="mono">hame</td>
-          <td><span class="badge badge-high">High</span></td>
-          <td class="r">409,800</td>
-          <td class="r c-orange">44,000</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:28%;background:var(--orange)"></div></div>
-              <span class="bar-pct c-orange">10.7%</span>
-            </div>
-          </td>
-        </tr>
-        <tr class="high">
-          <td class="mono">dx</td>
-          <td><span class="badge badge-high">High</span></td>
-          <td class="r">3,594,084</td>
-          <td class="r c-orange">357,569</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:26%;background:var(--orange)"></div></div>
-              <span class="bar-pct c-orange">9.95%</span>
-            </div>
-          </td>
-        </tr>
-        <tr class="high">
-          <td class="mono">small</td>
-          <td><span class="badge badge-high">High</span></td>
-          <td class="r">6,463,377</td>
-          <td class="r c-orange">600,643</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:24%;background:var(--orange)"></div></div>
-              <span class="bar-pct c-orange">9.29%</span>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td class="mono">ocean</td>
-          <td><span class="badge badge-medium">Medium</span></td>
-          <td class="r">50,802,311</td>
-          <td class="r c-yellow">3,494,193</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:18%;background:var(--yellow)"></div></div>
-              <span class="bar-pct c-yellow">6.88%</span>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td class="mono">N</td>
-          <td><span class="badge badge-medium">Medium</span></td>
-          <td class="r">27,783,163</td>
-          <td class="r c-yellow">1,845,063</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:17%;background:var(--yellow)"></div></div>
-              <span class="bar-pct c-yellow">6.64%</span>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td class="mono">bin</td>
-          <td><span class="badge badge-medium">Medium</span></td>
-          <td class="r">14,778,010</td>
-          <td class="r c-yellow">806,841</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:14%;background:var(--yellow)"></div></div>
-              <span class="bar-pct c-yellow">5.46%</span>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td class="mono">nihao</td>
-          <td><span class="badge badge-medium">Medium</span></td>
-          <td class="r">2,764,252</td>
-          <td class="r c-yellow">132,254</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:12%;background:var(--yellow)"></div></div>
-              <span class="bar-pct c-yellow">4.79%</span>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td class="mono">benz</td>
-          <td><span class="badge badge-low">Normal+</span></td>
-          <td class="r">16,883,308</td>
-          <td class="r">724,355</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:11%;background:var(--text3)"></div></div>
-              <span class="bar-pct">4.29%</span>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td class="mono">tina</td>
-          <td><span class="badge badge-low">Normal</span></td>
-          <td class="r">25,000,626</td>
-          <td class="r">536,743</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:6%;background:var(--green2)"></div></div>
-              <span class="bar-pct c-dim">2.15%</span>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td class="mono">flash</td>
-          <td><span class="badge badge-low">Normal</span></td>
-          <td class="r">85,855,716</td>
-          <td class="r">1,539,158</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:5%;background:var(--green2)"></div></div>
-              <span class="bar-pct c-dim">1.79%</span>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td class="mono">milk</td>
-          <td><span class="badge badge-low">Normal</span></td>
-          <td class="r">20,614,449</td>
-          <td class="r">165,366</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:2%;background:var(--green2)"></div></div>
-              <span class="bar-pct c-dim">0.80%</span>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- INDIVIDUAL CREATOR BREAKDOWN -->
-<div class="section">
-  <div class="section-title">第二層：個別 Creator 細分</div>
-
-  <!-- HAPPY -->
-  <div class="company-block">
-    <div class="company-header">
-      <div>
-        <div class="company-name">happy <span class="badge badge-critical" style="margin-left:8px">38.3% 公司佔比</span></div>
-        <div class="company-meta">總鑽石 3,343,800 ／ Extra pack 1,281,941 ／ 不重複買家 186 人</div>
+  <!-- 01 power-law -->
+  <div class="sec">
+    <div class="sec-lbl"><span class="sec-n">01</span><h2>為何 Whale 是核心計算單位</h2></div>
+    <div class="pc">
+      <div class="pc-lbl">營收集中度 ── 過去 6 個月，SWAG Mixpanel 實際資料</div>
+      <div class="br">
+        <div class="bt">Whale 5%</div>
+        <div class="bk"><div class="bf fw" id="bw">72%</div></div>
+        <div class="bp">72% 營收</div>
+      </div>
+      <div class="br">
+        <div class="bt">Dolphin 15%</div>
+        <div class="bk"><div class="bf fd" id="bd">~20%</div></div>
+        <div class="bp">~20% 營收</div>
+      </div>
+      <div class="br">
+        <div class="bt">Minnow 80%</div>
+        <div class="bk"><div class="bf fm" id="bm">~8%</div></div>
+        <div class="bp">~8% 營收</div>
+      </div>
+      <div class="ps">
+        <div class="pi"><span class="pn" style="color:var(--whale)">$2,470</span><span class="pl">Whale 6 個月 GMV（已驗證）</span></div>
+        <div class="pi"><span class="pn" style="color:var(--est)">$545</span><span class="pl">Whale 月 ARPU（估算）</span></div>
+        <div class="pi"><span class="pn" style="color:var(--muted)">$11</span><span class="pl">Minnow 6 個月 GMV（已驗證）</span></div>
+        <div class="pi"><span class="pn" style="color:var(--verified)">8×</span><span class="pl">Whale vs. Blended 平台 LTV 倍數</span></div>
       </div>
     </div>
-    <div class="company-table">
+  </div>
+
+  <!-- 02 two paths -->
+  <div class="sec">
+    <div class="sec-lbl"><span class="sec-n">02</span><h2>框架修正：Whale 的兩條來源路徑</h2></div>
+    <div class="two">
+      <div class="path p-acq">
+        <div class="path-head">
+          <span class="path-title" style="color:var(--est)">路徑 A｜流量帶進</span>
+        </div>
+        <div class="path-q">某些頭部的受眾本身就有<strong>高消費傾向</strong>，他帶誰進來，平台就撿到 whale 預備軍。</div>
+        <div class="path-q">核心問題：<strong>這個頭部帶來的用戶，30 天內 ≥$100 的比例是多少？</strong></div>
+        <div class="path-note note-est">現有框架已覆蓋此路徑</div>
+      </div>
+      <div class="path p-grad">
+        <div class="path-head">
+          <span class="path-title" style="color:var(--whale)">路徑 B｜平台養成</span>
+        </div>
+        <div class="path-q">用戶進來時只是 minnow，<strong>平台的機制</strong>（排行榜、禮物特效、VIP 通知、AI 互動）讓他逐漸升級成 whale。</div>
+        <div class="path-q">核心問題：<strong>從第一次付費到跨越 whale 門檻，平均要多久？哪些行為觸發了升級？</strong></div>
+        <div class="path-blind">原始框架完全缺失此路徑——把 whale 的功勞全歸給帶他進來的頭部</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 03 tier table -->
+  <div class="sec">
+    <div class="sec-lbl"><span class="sec-n">03</span><h2>分層 LTV 數字（含待補項）</h2></div>
+    <div class="tw">
       <table>
         <thead>
           <tr>
-            <th>Creator</th>
-            <th>風險</th>
-            <th class="r">總鑽石</th>
-            <th class="r">Extra Pack</th>
-            <th class="r">不重複買家</th>
-            <th>佔比</th>
+            <th>Tier</th><th>門檻</th><th>占人數</th><th>占營收</th>
+            <th>月 ARPU</th><th>平台 LTV 12月</th><th>合理 CAC</th><th>狀態</th>
           </tr>
         </thead>
         <tbody>
-          <tr class="critical">
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/mds8888" target="_blank">mds8888</a></td>
-            <td><span class="badge badge-critical">Shell?</span></td>
-            <td class="r">1,276,544</td>
-            <td class="r c-red">1,206,323</td>
-            <td class="r c-red">136</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--red)"></div></div>
-                <span class="bar-pct c-red">94.5%</span>
-              </div>
-            </td>
+          <tr class="rw">
+            <td class="cw">Whale</td><td class="cmo cw">≥$500/6mo</td><td>~5%</td><td class="cw">~72%</td>
+            <td>~$545</td><td class="cw">~$2,800</td><td class="cw">~$1,000</td>
+            <td><span class="badge b-ok">✓ 已驗證</span></td>
           </tr>
           <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/xyc200896" target="_blank">xyc200896</a></td>
-            <td><span class="badge badge-medium">Medium</span></td>
-            <td class="r">427,806</td>
-            <td class="r c-yellow">52,899</td>
-            <td class="r">20</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:13%;background:var(--yellow)"></div></div>
-                <span class="bar-pct c-yellow">12.4%</span>
-              </div>
-            </td>
+            <td class="cd">Dolphin</td><td class="cmo cm">$100–499/6mo</td><td>~15%</td><td class="cd">~20%</td>
+            <td class="cm">TBD</td><td class="cm">TBD</td><td class="cm">TBD</td>
+            <td><span class="badge b-flag">⚠ 待拉資料</span></td>
           </tr>
           <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/oumei_nvhai" target="_blank">oumei_nvhai</a></td>
-            <td><span class="badge badge-low">Low</span></td>
-            <td class="r">58,010</td>
-            <td class="r">2,220</td>
-            <td class="r">7</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:4%;background:var(--green2)"></div></div>
-                <span class="bar-pct c-dim">3.8%</span>
-              </div>
-            </td>
+            <td class="cm">Minnow</td><td class="cmo cm">&lt;$100/6mo</td><td>~80%</td><td class="cm">~8%</td>
+            <td>~$2</td><td class="cm">&lt;$50</td><td class="cm">&lt;$30</td>
+            <td><span class="badge b-est">~ 估算</span></td>
           </tr>
           <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/mmj520" target="_blank">mmj520</a></td>
-            <td><span class="badge badge-low">Low</span></td>
-            <td class="r">248,494</td>
-            <td class="r">5,610</td>
-            <td class="r">7</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:2%;background:var(--green2)"></div></div>
-                <span class="bar-pct c-dim">2.3%</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/zhuzhu667788" target="_blank">zhuzhu667788</a></td>
-            <td><span class="badge badge-low">Normal</span></td>
-            <td class="r">1,332,886</td>
-            <td class="r">14,889</td>
-            <td class="r">17</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:1%;background:var(--green2)"></div></div>
-                <span class="bar-pct c-dim">1.1%</span>
-              </div>
-            </td>
+            <td class="cm" style="font-style:italic">Blended</td><td class="cmo cm">—</td><td>—</td><td class="cm">100%</td>
+            <td>~$93</td><td class="cm">~$340</td><td class="cf">⚠ 勿用於 CAC 決策</td>
+            <td><span class="badge b-ok">✓ 已驗證</span></td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
 
-  <!-- OCEAN -->
-  <div class="company-block">
-    <div class="company-header">
-      <div>
-        <div class="company-name">ocean <span class="badge badge-medium" style="margin-left:8px">6.88% 公司佔比</span></div>
-        <div class="company-meta">總鑽石 50,802,311 ／ Extra pack 3,494,193 ／ 不重複買家 1,034 人</div>
+  <!-- 04 observation system -->
+  <div class="sec">
+    <div class="sec-lbl"><span class="sec-n">04</span><h2>環繞 Whale 的數據觀測架構</h2></div>
+
+    <p class="obs-intro">
+      三層縱向觀測，追蹤 whale 從<strong>流入、養成到存量健康</strong>的完整生命週期；加一個橫切維度，把 creator 對「養成」的貢獻從「帶進」中分離出來。
+    </p>
+
+    <div class="layers">
+
+      <!-- Layer 1 -->
+      <div class="layer">
+        <div class="layer-id">
+          <span class="layer-num">LAYER 01</span>
+          <span class="layer-name" style="color:var(--est)">流入觀測</span>
+          <span class="layer-en">Inflow</span>
+        </div>
+        <div class="layer-body">
+          <div class="layer-q">
+            誰帶來有 whale 傾向的用戶？<span>——觀測新 whale 的入口來源結構</span>
+          </div>
+          <div class="metrics">
+            <span class="metric mi">new whale/月 by 來源</span>
+            <span class="metric mi">D30 ≥$100 early signal</span>
+            <span class="metric">whale acquisition rate 趨勢</span>
+            <span class="metric">per-Creator whale yield %</span>
+          </div>
+          <div class="layer-signal">
+            <strong>早期訊號</strong>：imported cohort 前 30 天花 ≥$100 的比例——不用等 6 個月，1 個月內就知道這個頭部帶的是哪種人。
+          </div>
+        </div>
+      </div>
+
+      <!-- Layer 2 -->
+      <div class="layer">
+        <div class="layer-id">
+          <span class="layer-num">LAYER 02</span>
+          <span class="layer-name" style="color:var(--whale)">養成觀測</span>
+          <span class="layer-en">Graduation</span>
+        </div>
+        <div class="layer-body">
+          <div class="layer-q">
+            平台把多少 minnow 升級成了 whale？<span>——觀測消費層級的流動</span>
+          </div>
+          <div class="metrics">
+            <span class="metric hi">minnow→whale graduation rate</span>
+            <span class="metric hi">median time-to-whale</span>
+            <span class="metric">tier 升級速率 by cohort</span>
+            <span class="metric">graduation 前的行為序列</span>
+          </div>
+          <div class="layer-signal">
+            <strong>關鍵假設待驗</strong>：graduation 是被<strong>平台機制</strong>驅動（排行榜、禮物特效、VIP 通知），還是用戶本身就有升級傾向？找到那個觸發事件，才知道該優化哪裡。
+          </div>
+        </div>
+      </div>
+
+      <!-- Layer 3 -->
+      <div class="layer">
+        <div class="layer-id">
+          <span class="layer-num">LAYER 03</span>
+          <span class="layer-name" style="color:var(--verified)">存量觀測</span>
+          <span class="layer-en">Stock Health</span>
+        </div>
+        <div class="layer-body">
+          <div class="layer-q">
+            現有 whale 是在成長、持平、還是悄悄流失？<span>——觀測存量 whale 的健康度</span>
+          </div>
+          <div class="metrics">
+            <span class="metric vi">whale active rate（30 天內有消費）</span>
+            <span class="metric vi">whale spend trajectory</span>
+            <span class="metric fi">連續 2 月下滑 = 預警</span>
+            <span class="metric">whale 濃度風險（前 10 名占比）</span>
+          </div>
+          <div class="layer-signal">
+            <strong>濃度風險</strong>：如果前 10 個 whale 貢獻了 whale 總消費的 60%+，任何一個流失都會在財報上留下痕跡。需要主動監控，而不是等到發現時再追。
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- cross-cut -->
+    <div class="xcut">
+      <div class="xcut-id">
+        <span class="xcut-tag">橫切維度</span>
+        <span class="xcut-name">Creator 養成力</span>
+      </div>
+      <div class="xcut-body">
+        <div class="xcut-q">同一批 minnow，在不同 creator 直播間的 graduation rate 是否不同？</div>
+        <div class="xcut-sub">
+          這個問題把兩類 creator 分開：<strong>吸引現有 whale 的 creator</strong>（帶進來就是 whale），和<strong>製造 whale 的 creator</strong>（他的直播間讓 minnow 願意花更多）。兩者同樣有價值，但策略完全不同——前者靠受眾篩選，後者靠直播間的氛圍與互動設計。
+        </div>
       </div>
     </div>
-    <div class="company-table">
-      <table>
-        <thead>
-          <tr>
-            <th>Creator</th>
-            <th>風險</th>
-            <th class="r">總鑽石</th>
-            <th class="r">Extra Pack</th>
-            <th class="r">不重複買家</th>
-            <th>佔比</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr class="critical">
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/xinxinbaby3" target="_blank">xinxinbaby3</a></td>
-            <td><span class="badge badge-critical">Shell?</span></td>
-            <td class="r">260,592</td>
-            <td class="r c-red">257,013</td>
-            <td class="r c-red">30</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--red)"></div></div>
-                <span class="bar-pct c-red">98.6%</span>
-              </div>
-            </td>
-          </tr>
-          <tr class="critical">
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/love_bb2026" target="_blank">love_bb2026</a></td>
-            <td><span class="badge badge-critical">Shell?</span></td>
-            <td class="r">349,361</td>
-            <td class="r c-red">343,051</td>
-            <td class="r c-red">42</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:98%;background:var(--red)"></div></div>
-                <span class="bar-pct c-red">98.2%</span>
-              </div>
-            </td>
-          </tr>
-          <tr class="critical">
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/sese_s" target="_blank">sese_s</a></td>
-            <td><span class="badge badge-critical">Shell?</span></td>
-            <td class="r">501,024</td>
-            <td class="r c-red">486,255</td>
-            <td class="r c-red">55</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:97%;background:var(--red)"></div></div>
-                <span class="bar-pct c-red">97.0%</span>
-              </div>
-            </td>
-          </tr>
-          <tr class="critical">
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/tting_123" target="_blank">tting_123</a></td>
-            <td><span class="badge badge-critical">Shell?</span></td>
-            <td class="r">441,180</td>
-            <td class="r c-red">364,770</td>
-            <td class="r c-red">46</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:83%;background:var(--red)"></div></div>
-                <span class="bar-pct c-red">82.7%</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/nanaoooo" target="_blank">nanaoooo</a></td>
-            <td><span class="badge badge-high">High</span></td>
-            <td class="r">30,892</td>
-            <td class="r c-orange">16,221</td>
-            <td class="r">2</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:52%;background:var(--orange)"></div></div>
-                <span class="bar-pct c-orange">52.5%</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/huangyy520" target="_blank">huangyy520</a></td>
-            <td><span class="badge badge-medium">Medium</span></td>
-            <td class="r">683,605</td>
-            <td class="r c-yellow">101,064</td>
-            <td class="r">26</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:15%;background:var(--yellow)"></div></div>
-                <span class="bar-pct c-yellow">14.8%</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/mayinuo611508" target="_blank">mayinuo611508</a></td>
-            <td><span class="badge badge-low">Low</span></td>
-            <td class="r">1,392,801</td>
-            <td class="r">119,620</td>
-            <td class="r">92</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:9%;background:var(--green2)"></div></div>
-                <span class="bar-pct c-dim">8.6%</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/nuonuo_x" target="_blank">nuonuo_x</a></td>
-            <td><span class="badge badge-low">Low</span></td>
-            <td class="r">2,922,483</td>
-            <td class="r">251,123</td>
-            <td class="r">82</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:9%;background:var(--green2)"></div></div>
-                <span class="bar-pct c-dim">8.6%</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/lele_z" target="_blank">lele_z</a></td>
-            <td><span class="badge badge-low">Low</span></td>
-            <td class="r">2,047,560</td>
-            <td class="r">169,495</td>
-            <td class="r">96</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:8%;background:var(--green2)"></div></div>
-                <span class="bar-pct c-dim">8.3%</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/susuya_s" target="_blank">susuya_s</a></td>
-            <td><span class="badge badge-low">Low</span></td>
-            <td class="r">2,276,454</td>
-            <td class="r">138,112</td>
-            <td class="r">92</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:6%;background:var(--green2)"></div></div>
-                <span class="bar-pct c-dim">6.1%</span>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
   </div>
 
-  <!-- N -->
-  <div class="company-block">
-    <div class="company-header">
-      <div>
-        <div class="company-name">N 公司 <span class="badge badge-medium" style="margin-left:8px">6.64% 公司佔比</span></div>
-        <div class="company-meta">總鑽石 27,783,163 ／ Extra pack 1,845,063 ／ 不重複買家 601 人</div>
+  <div class="div"></div>
+
+  <!-- 05 actions -->
+  <div class="sec">
+    <div class="sec-lbl"><span class="sec-n">05</span><h2>L5 Action Items</h2></div>
+    <div class="actions">
+      <div class="action-row">
+        <div class="an">A1</div>
+        <div class="at">
+          確認 take rate + 統一三層 tier 定義
+          <em>所有 LTV 換算的地基。take rate 65% 為未驗證假設，需 Finance confirm 後重算。Tier 定義發出作為全組共同語言。</em>
+        </div>
+        <div class="atags">
+          <span class="tag s">L5 自行</span>
+          <span class="tag">Finance</span>
+        </div>
+      </div>
+      <div class="action-row">
+        <div class="an">A2</div>
+        <div class="at">
+          建構三層 Whale 觀測體系
+          <em>在 Mixpanel 分別建立流入、養成、存量三層 dashboard，加橫切的 per-Creator graduation rate 視圖。</em>
+        </div>
+        <div class="atags">
+          <span class="tag s">L5 主導</span>
+          <span class="tag">Creator Analytics</span>
+        </div>
+      </div>
+      <div class="action-row">
+        <div class="an">A3</div>
+        <div class="at">
+          以雙路徑框架重設 Creator Deal 評估標準
+          <em>評估頭部的兩個維度並列：whale yield（帶進多少）+ graduation acceleration（讓多少 minnow 升級）。</em>
+        </div>
+        <div class="atags">
+          <span class="tag">Jeff Chan</span>
+          <span class="tag">Yukai Chen</span>
+        </div>
       </div>
     </div>
-    <div class="company-table">
-      <table>
-        <thead>
-          <tr>
-            <th>Creator</th>
-            <th>風險</th>
-            <th class="r">總鑽石</th>
-            <th class="r">Extra Pack</th>
-            <th class="r">不重複買家</th>
-            <th>佔比</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr class="critical">
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/hvsspring" target="_blank">hvsspring</a></td>
-            <td><span class="badge badge-critical">Critical</span></td>
-            <td class="r">1,450,258</td>
-            <td class="r c-red">601,481</td>
-            <td class="r">40</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--red)"></div></div>
-                <span class="bar-pct c-red">41.5%</span>
-              </div>
-            </td>
-          </tr>
-          <tr class="high">
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/zxhzxh123456" target="_blank">zxhzxh123456</a></td>
-            <td><span class="badge badge-high">High</span></td>
-            <td class="r">429,528</td>
-            <td class="r c-orange">114,684</td>
-            <td class="r">33</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:64%;background:var(--orange)"></div></div>
-                <span class="bar-pct c-orange">26.7%</span>
-              </div>
-            </td>
-          </tr>
-          <tr class="high">
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/shunshun818" target="_blank">shunshun818</a></td>
-            <td><span class="badge badge-high">High</span></td>
-            <td class="r">511,664</td>
-            <td class="r c-orange">72,446</td>
-            <td class="r">40</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:34%;background:var(--orange)"></div></div>
-                <span class="bar-pct c-orange">14.2%</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/forcefulrain3037" target="_blank">forcefulrain3037</a></td>
-            <td><span class="badge badge-medium">Medium</span></td>
-            <td class="r">1,159,602</td>
-            <td class="r c-yellow">116,288</td>
-            <td class="r">31</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:24%;background:var(--yellow)"></div></div>
-                <span class="bar-pct c-yellow">10.0%</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/skyvivi3" target="_blank">skyvivi3</a></td>
-            <td><span class="badge badge-medium">Medium</span></td>
-            <td class="r">367,568</td>
-            <td class="r c-yellow">38,520</td>
-            <td class="r">11</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:25%;background:var(--yellow)"></div></div>
-                <span class="bar-pct c-yellow">10.5%</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/xiaotiantian_10" target="_blank">xiaotiantian_10</a></td>
-            <td><span class="badge badge-low">Low</span></td>
-            <td class="r">790,808</td>
-            <td class="r">57,667</td>
-            <td class="r">59</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:18%;background:var(--green2)"></div></div>
-                <span class="bar-pct c-dim">7.3%</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/extraneousred6988" target="_blank">extraneousred6988</a></td>
-            <td><span class="badge badge-low">Low</span></td>
-            <td class="r">1,373,185</td>
-            <td class="r">81,586</td>
-            <td class="r">60</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:15%;background:var(--green2)"></div></div>
-                <span class="bar-pct c-dim">5.9%</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/shuimitao520" target="_blank">shuimitao520</a></td>
-            <td><span class="badge badge-low">Low</span></td>
-            <td class="r">516,885</td>
-            <td class="r">32,221</td>
-            <td class="r">18</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:15%;background:var(--green2)"></div></div>
-                <span class="bar-pct c-dim">6.2%</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/ubub789" target="_blank">ubub789</a></td>
-            <td><span class="badge badge-low">Low</span></td>
-            <td class="r">5,963,790</td>
-            <td class="r">221,583</td>
-            <td class="r">109</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:9%;background:var(--green2)"></div></div>
-                <span class="bar-pct c-dim">3.7%</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="mono"><a class="swag-link" href="https://swag.live/u/nage5210" target="_blank">nage5210</a></td>
-            <td><span class="badge badge-low">Low</span></td>
-            <td class="r">518,540</td>
-            <td class="r">20,036</td>
-            <td class="r">12</td>
-            <td>
-              <div class="bar-wrap">
-                <div class="bar-track"><div class="bar-fill" style="width:10%;background:var(--green2)"></div></div>
-                <span class="bar-pct c-dim">3.9%</span>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
   </div>
+
+  <!-- footer -->
+  <div class="ftr">
+    <span>SWAG.LIVE — Whale Economics Observation Framework v2</span>
+    <span id="ftr-date"></span>
+  </div>
+
 </div>
-
-<!-- KEY FINDINGS -->
-<div class="section">
-  <div class="section-title">關鍵發現</div>
-
-  <div class="finding">
-    <div class="finding-title">🔴 疑似 Shell Account（專用收款帳號）— 5 個</div>
-    <div class="finding-body">
-      以下帳號幾乎 <strong>完全依賴 extra_pack_buyer</strong> 作為鑽石來源，正常用戶極少送禮，強烈指向為配合代儲/刷量而建立的收款帳號：<br><br>
-      <code>mds8888</code>（94.5%，1,206,323 鑽石）·
-      <code>xinxinbaby3</code>（98.6%）·
-      <code>love_bb2026</code>（98.2%）·
-      <code>sese_s</code>（97.0%）·
-      <code>tting_123</code>（82.7%）<br><br>
-      正常創作者的收入基礎應來自真實回頭粉絲，若幾乎全數來自剛買禮包的新用戶，幾乎可以確定是有人系統性地導流。
-    </div>
-  </div>
-
-  <div class="finding orange">
-    <div class="finding-title">🟠 happy 公司結構異常</div>
-    <div class="finding-body">
-      happy 公司整體 38.3% 的佔比，主要由 <code>mds8888</code> 貢獻（94.5%，是 happy 最大的 creator）。
-      <code>zhuzhu667788</code> 同為 happy 旗下但佔比僅 1.1%，兩者行為模式差異極大，代表問題集中在 mds8888 這個帳號而非整個公司普遍性行為。
-    </div>
-  </div>
-
-  <div class="finding orange">
-    <div class="finding-title">🟠 hvsspring（N 公司）結構性高佔比</div>
-    <div class="finding-body">
-      N 公司旗下 <code>hvsspring</code> 獨佔 601,481 鑽石（41.5% 佔比），幾乎貢獻了 N 公司全部異常量的三分之一。
-      相比之下 <code>ubub789</code>（109 名買家，3.7% 佔比）屬於正常高人氣 creator。
-    </div>
-  </div>
-
-  <div class="finding yellow">
-    <div class="finding-title">🟡 nanaoooo 新增觀察對象</div>
-    <div class="finding-body">
-      ocean 旗下 <code>nanaoooo</code> 總鑽石量小（30,892），但 52.5% 來自 extra_pack_buyer，僅 2 位不重複買家貢獻 16,221 鑽石，疑似少數帳號集中輸送，建議確認這 2 位買家的 fpid 身份。
-    </div>
-  </div>
-</div>
-
-<!-- RECOMMENDED ACTIONS -->
-<div class="section">
-  <div class="section-title">建議行動</div>
-  <table>
-    <thead>
-      <tr>
-        <th>優先級</th>
-        <th>目標帳號</th>
-        <th>行動</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><span class="badge badge-critical">P0</span></td>
-        <td class="mono">mds8888 / xinxinbaby3 / love_bb2026 / sese_s / tting_123</td>
-        <td>確認帳號真實性、查 fpid 重疊與 creator 資料，評估 ban</td>
-      </tr>
-      <tr>
-        <td><span class="badge badge-high">P1</span></td>
-        <td class="mono">hvsspring / zxhzxh123456</td>
-        <td>查 N 公司背景，確認是否知情，追蹤買家 IP/fpid 是否重疊</td>
-      </tr>
-      <tr>
-        <td><span class="badge badge-medium">P2</span></td>
-        <td class="mono">shunshun818 / huangyy520 / nanaoooo</td>
-        <td>二線觀察，若有新增異常再升級</td>
-      </tr>
-      <tr>
-        <td><span class="badge badge-low">Watch</span></td>
-        <td class="mono">happy（公司整體）/ small / dx / raptor</td>
-        <td>繼續監控公司層級佔比趨勢</td>
-      </tr>
-    </tbody>
-  </table>
-  <div class="note">
-    ※ 所有佔比計算以同一時間範圍為基準（報表時間詳見 Mixpanel）。正常基準值：flash 1.8%、milk 0.8%、tina 2.15%。
-  </div>
-</div>
-
-<hr>
-
-<!-- FOOTER LINKS -->
-<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-  <div style="font-family:var(--mono); font-size:11px; color:var(--text3);">
-    SWAG.live · Internal Ops · Fraud Investigation
-  </div>
-  <div class="links-row">
-    <a class="mp-link" href="https://mixpanel.com/project/1262196/view/111855/app/boards#id=11174672">本次 Dashboard</a>
-    <a class="mp-link" href="https://mixpanel.com/project/1262196/view/111855/app/insights#id=89986302">公司層級報表</a>
-    <a class="mp-link" href="https://mixpanel.com/project/1262196/view/111855/app/insights#id=89986335">Creator 細分報表</a>
-    <a class="mp-link" href="https://mixpanel.com/project/1262196/view/111855/app/boards/#id=10914326">舊版 Ops Board</a>
-  </div>
-</div>
-
+<script>
+  const d = new Date().toLocaleDateString('zh-TW', {year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('doc-date').textContent = d;
+  document.getElementById('ftr-date').textContent = d;
+  setTimeout(() => {
+    document.getElementById('bw').style.width = '72%';
+    document.getElementById('bd').style.width = '20%';
+    document.getElementById('bm').style.width = '8%';
+  }, 400);
+</script>
 </body>
 </html>
